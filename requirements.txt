@@ -1,0 +1,2 @@
+customtkinter==5.2.2
+WMI==1.5.1
