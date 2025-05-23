@@ -59,23 +59,33 @@ class DatabaseManager:
             conn = sqlite3.connect(file_path)
             cursor = conn.cursor()
             
-            # Check for existing SG Connect devices
-            cursor.execute(
-                "SELECT id FROM device_iobox WHERE device_id = ? AND vendor_id = ?", 
-                (97, 0)
-            )
-        
-            if cursor.fetchone():
-                if not messagebox.askokcancel(
-                    "Warning", 
-                    "Session already contains Local Device. Remove it and continue?"
-                ):
-                    conn.close()
-                    return False
-                
-                # Remove existing device
-                cursor.execute("DELETE FROM device WHERE id IN (SELECT id FROM device_iobox WHERE device_id = ? AND vendor_id = ?)", (97, 0))
-                cursor.execute("DELETE FROM device_iobox WHERE device_id = ? AND vendor_id = ?", (97, 0))
+            # Check for existing host SG Connect devices
+            cursor.execute("""
+                SELECT device.id 
+                FROM device
+                JOIN device_iobox ON device.id = device_iobox.id
+                WHERE device_iobox.device_id = ? AND device_iobox.vendor_id = ?
+            """, (97, 0))
+
+            for (device_id,) in cursor.fetchall():
+                cursor.execute("SELECT owner_uuid FROM device WHERE id = ?", (device_id,))
+                (owner_uuid,) = cursor.fetchone()
+
+                # Check if owner_uuid is all zeros (Session hosts)
+                normalized_uuid = str(owner_uuid).replace(":", "").replace(",", "").replace(" ", "")
+                if normalized_uuid.strip('0') == "":
+                    if not messagebox.askokcancel(
+                        "Warning", 
+                        "Session already contains host Local Device. Remove it and continue?"
+                    ):
+                        conn.close()
+                        return False
+
+                    # Remove device and its iobox entry
+                    cursor.execute("DELETE FROM device_iobox WHERE id = ? AND vendor_id = ?", (device_id, 0))
+                    cursor.execute("DELETE FROM device WHERE id = ?", (device_id,))
+
+                    
             
             # Check for device in the same slot
             cursor.execute(
@@ -91,9 +101,10 @@ class DatabaseManager:
                     conn.close()
                     return False
                 
-                # Remove existing device
+                # Remove device and its iobox entry
                 cursor.execute("DELETE FROM device_iobox WHERE id IN (SELECT id FROM device WHERE io_bank = ? AND assign = ?)", (bank, io))
                 cursor.execute("DELETE FROM device WHERE id IN (SELECT id FROM device WHERE io_bank = ? AND assign = ?)", (bank, io))
+                
 
             # Get next available ID
             cursor.execute("SELECT MAX(id) FROM device")
