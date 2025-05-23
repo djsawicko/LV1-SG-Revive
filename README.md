@@ -6,7 +6,7 @@
 Utility for restoring Local Device (SoundGrid Connect) support in eMotion LV1 sessions (dropped in v15). 
 Pre-built Windows executables available in [Releases](https://github.com/djsawicko/LV1-SG-Revive/releases).
 
-**Key Features:**
+**Use Cases:**
 - Dante Virtual Soundcard integration
 - FOH talkback/headphone feeds  
 - Timecode distribution  
