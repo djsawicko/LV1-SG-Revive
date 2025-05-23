@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/badge/Python-3.13+-blue?logo=python)](https://)
 
 Utility for restoring Local Device (SoundGrid Connect) support in eMotion LV1 sessions (dropped in v15). 
-Pre-built Windows executables available in [Releases](https://github.com/GustasSavi/eMotion-SGConnect-Revive/releases).
+Pre-built Windows executables available in [Releases](https://github.com/djsawicko/LV1-SG-Revive/releases).
 
 **Key Features:**
 - Dante Virtual Soundcard integration
