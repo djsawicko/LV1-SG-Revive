@@ -92,8 +92,8 @@ class DatabaseManager:
                     return False
                 
                 # Remove existing device
+                cursor.execute("DELETE FROM device_iobox WHERE id IN (SELECT id FROM device WHERE io_bank = ? AND assign = ?)", (bank, io))
                 cursor.execute("DELETE FROM device WHERE id IN (SELECT id FROM device WHERE io_bank = ? AND assign = ?)", (bank, io))
-                cursor.execute("DELETE FROM device_iobox WHERE (SELECT id FROM device WHERE io_bank = ? AND assign = ?)", (bank, io))
 
             # Get next available ID
             cursor.execute("SELECT MAX(id) FROM device")
