@@ -11,7 +11,7 @@ additional_files = []
 # PyInstaller arguments
 args = [
     script_path,
-    "--onedir",
+    "--onefile",
     "--windowed",
     f"--name={app_name}",
     "--clean",
