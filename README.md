@@ -16,6 +16,9 @@ Pre-built Windows executables available in [Releases](https://github.com/djsawic
   <img src="https://github.com/user-attachments/assets/b13fdc24-49c3-489c-bf31-2ba18456e4ff" alt="SG Connect Revive Interface">
 </p>
 
+<video src="https://github.com/user-attachments/assets/6cd72004-b64d-483d-b0a0-ba1e058bba53" autoplay loop muted playsinline></video>
+
+
 ## Technical Implementation
 
 Modifies `.emo` session files (SQLite databases) by injecting proper SoundGrid Connect configuration values.  
