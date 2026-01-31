@@ -6,6 +6,9 @@
 Utility for restoring Local Device (SoundGrid Connect) support in eMotion LV1 sessions (dropped in v15). 
 Pre-built Windows executables available in [Releases](https://github.com/djsawicko/LV1-SG-Revive/releases).
 
+> [!CAUTION]
+> Only works with drivers up to v15.6, as on v16 Waves completely removed the SoundGrid Connect tab from the control panel and it's functionality. Unfortunately this means that there is no known way of using Local IO on LV1 v16, as that also require v16 drivers. See more in https://github.com/djsawicko/LV1-SG-Revive/issues/2
+
 **Use Cases:**
 - Dante Virtual Soundcard integration
 - FOH talkback/headphone feeds  
@@ -33,7 +36,8 @@ Windows-only (requires WMI for network interface detection).
 ## Contributing
 
 We welcome contributions to:
-- 🐛 Report issues with different LV1 versions/device configurations  
+- 🐛 Report issues with different LV1 versions/device configurations
+- ⚠ Fix LV1 v16 compatibility
 - 🍎 Add macOS support (needs alternative to WMI)  
 - 📚 Document discovered SQL schema values  
 - ✨ Suggest improvements
