@@ -1,10 +1,11 @@
 # eMotion LV1 | SG Connect Revive
 
 [![Windows](https://img.shields.io/badge/Windows-10+-blue?logo=windows)](https://)
+[![MacOS](https://shields.io/badge/MacOS--9cf?logo=Apple&style=social)](https://)
 [![Python](https://img.shields.io/badge/Python-3.13+-blue?logo=python)](https://)
 
 Utility for restoring Local Device (SoundGrid Connect) support in eMotion LV1 sessions (dropped in v15). 
-Pre-built Windows executables available in [Releases](https://github.com/djsawicko/LV1-SG-Revive/releases).
+Pre-built Windows and x64 mac executables available in [Releases](https://github.com/djsawicko/LV1-SG-Revive/releases).
 
 > [!CAUTION]
 > Only works with drivers up to v15.6, as on v16 Waves completely removed the SoundGrid Connect tab from the control panel and it's functionality. Unfortunately this means that there is no known way of using Local IO on LV1 v16, as that also require v16 drivers. See more in https://github.com/djsawicko/LV1-SG-Revive/issues/2
@@ -24,21 +25,21 @@ Pre-built Windows executables available in [Releases](https://github.com/djsawic
 
 ## Technical Implementation
 
-Modifies `.emo` session files (SQLite databases) by injecting proper SoundGrid Connect configuration values.  
-Windows-only (requires WMI for network interface detection).
+Modifies `.emo` session files (SQLite databases) by injecting proper SoundGrid Connect configuration values.   
 
 **Tested Environment:**
 - ✔ Windows 10/11
+- ✔ MacOS Sonoma 14.8.7 (Intel)
 - ✔ LV1 15.6.223.414 Build R
 - ✔ SoundGrid 15.6.22
-- ✔ ASIO4All v2.16
+- ✔ ASIO (Fiio JA11 DAC, Behringer UMC1820, ASIO4All v2.16)
+- ✔ CoreAudio (Fiio JA11 DAC, Behringer UMC1820)
 
 ## Contributing
 
 We welcome contributions to:
 - 🐛 Report issues with different LV1 versions/device configurations
 - ⚠ Fix LV1 v16 compatibility
-- 🍎 Add macOS support (needs alternative to WMI)  
 - 📚 Document discovered SQL schema values  
 - ✨ Suggest improvements
 

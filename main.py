@@ -1,47 +1,96 @@
 import customtkinter as ctk
 import tkinter.filedialog as fd
 from tkinter import messagebox
-import wmi
+import platform
 import sqlite3
 import shutil
 import re
 import logging
+import subprocess
 from typing import List, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Conditional WMI import for Windows compatibility
+if platform.system() == "Windows":
+    import wmi
+else:
+    wmi = None
+
+
 class NetworkInterfaceManager:
-    """Handles network interface detection and MAC address processing"""
+    """Handles cross-platform network interface detection and MAC address processing"""
     def __init__(self):
-        self.wmi = wmi.WMI()
+        self.system = platform.system()
+        if self.system == "Windows":
+            self.wmi = wmi.WMI() if wmi else None
         
     def get_interfaces(self) -> List[str]:
-        """Returns list of available network interfaces with MAC addresses"""
+        """Returns list of available network interfaces based on the OS"""
+        if self.system == "Windows":
+            return self._get_windows_interfaces()
+        elif self.system == "Darwin":  # macOS
+            return self._get_macos_interfaces()
+        else:
+            logger.warning(f"Unsupported OS: {self.system}")
+            return []
+
+    def _get_windows_interfaces(self) -> List[str]:
+        """Windows-specific interface discovery via WMI"""
         interfaces = []
+        if not self.wmi:
+            return interfaces
         try:
             for nic in self.wmi.Win32_NetworkAdapter():
                 if nic.MACAddress:
                     interfaces.append(f"{nic.Name} ({nic.MACAddress})")
         except Exception as e:
-            logger.error(f"Error getting network interfaces: {e}")
+            logger.error(f"Error getting Windows network interfaces: {e}")
             messagebox.showerror("Error", "Could not detect network interfaces")
+        return interfaces
+
+    def _get_macos_interfaces(self) -> List[str]:
+        """
+        macOS-specific interface discovery.
+        Matches LV1 formatting: 'en0 - I219LM5 - 98:e7:f4:bf:53:4f'
+        """
+        interfaces = []
+        try:
+            # 1. Map BSD device names (en0) to Hardware Names (Wi-Fi, I219LM5, etc.)
+            # networksetup -listallhardwareports outputs sections containing:
+            # Hardware Port: Wi-Fi \n Device: en0 \n Ethernet Address: ...
+            cmd = ["networksetup", "-listallhardwareports"]
+            output = subprocess.check_output(cmd, text=True)
+            
+            # Find all blocks of port details
+            blocks = re.findall(r"Hardware Port:\s*(.*?)\nDevice:\s*(.*?)\nEthernet Address:\s*(.*?)\n", output, re.MULTILINE)
+            
+            for port_name, device_name, mac in blocks:
+                if mac and "N/A" not in mac:
+                    # Construct string strictly identical to how LV1 parses or shows it
+                    interfaces.append(f"{device_name} - {port_name} - {mac.lower()}")
+                    
+        except Exception as e:
+            logger.error(f"Error getting macOS network interfaces: {e}")
+            messagebox.showerror("Error", "Could not detect macOS network interfaces")
         return interfaces
     
     @staticmethod
     def extract_mac(interface_str: str) -> int:
         """
-        Extracts MAC from string like 'Intel(R) Wireless-AC 9560 160MHz (00:00:00:00:00)'
-        and converts it into LV1 friendly format
+        Extracts MAC address from both Windows (brackets) and macOS (hyphen-delimited) strings
+        and converts it into an LV1 friendly integer format.
         """
         try:
-            matches = re.findall(r'\(([^)]+)\)', interface_str)
-            if not matches:
+            # Look for standard 6-byte hex MAC layouts separated by colons (e.g. 98:e7:f4:bf:53:4f)
+            mac_match = re.search(r'([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})', interface_str)
+            if not mac_match:
                 raise ValueError("No MAC address found in interface string")
                 
-            last_value = matches[-1]  # Get last value in brackets (MAC addr)
-            return int(last_value.replace(":", ""), 16)  # Convert to LV1 format
+            mac_addr = mac_match.group(1)
+            return int(mac_addr.replace(":", ""), 16)  # Convert hex to integer for LV1 Database
         except Exception as e:
             logger.error(f"Error processing MAC address: {e}")
             raise ValueError("Invalid MAC address format") from e
@@ -51,10 +100,7 @@ class DatabaseManager:
     """Handles all database operations for the eMotion session files"""
     @staticmethod
     def update_session(file_path: str, mac: int, bank: int, io: int) -> bool:
-        """
-        Updates the session file with new SG Connect device configuration
-        Returns True if successful, False otherwise
-        """
+        """Updates the session file with new SG Connect device configuration"""
         try:
             conn = sqlite3.connect(file_path)
             cursor = conn.cursor()
@@ -85,8 +131,6 @@ class DatabaseManager:
                     cursor.execute("DELETE FROM device_iobox WHERE id = ? AND vendor_id = ?", (device_id, 0))
                     cursor.execute("DELETE FROM device WHERE id = ?", (device_id,))
 
-                    
-            
             # Check for device in the same slot
             cursor.execute(
                 "SELECT id FROM device WHERE io_bank = ? AND assign = ?", 
@@ -104,7 +148,6 @@ class DatabaseManager:
                 # Remove device and its iobox entry
                 cursor.execute("DELETE FROM device_iobox WHERE id IN (SELECT id FROM device WHERE io_bank = ? AND assign = ?)", (bank, io))
                 cursor.execute("DELETE FROM device WHERE id IN (SELECT id FROM device WHERE io_bank = ? AND assign = ?)", (bank, io))
-                
 
             # Get next available ID
             cursor.execute("SELECT MAX(id) FROM device")
@@ -149,7 +192,7 @@ class MacConfigApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("eMotion LV1 | SG Connect Revive")
-        self.geometry("550x200")
+        self.geometry("550x220")
         self.session: Optional[str] = None
         
         # Configure appearance
@@ -163,11 +206,9 @@ class MacConfigApp(ctk.CTk):
         
     def _setup_ui(self):
         """Sets up all UI components with improved layout management"""
-        # Main container frame
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Setup section
         setup_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         setup_frame.pack(fill="x", pady=5, padx=30)
         
@@ -177,14 +218,21 @@ class MacConfigApp(ctk.CTk):
         
         ctk.CTkLabel(iface_frame, text="SG Connect network interface:").pack(anchor="c")
         self.interface_var = ctk.StringVar()
+        
+        interfaces = self.interface_manager.get_interfaces()
+        # Fallback if no interfaces found
+        if not interfaces:
+            interfaces = ["No interfaces found"]
+            
         self.interface_menu = ctk.CTkOptionMenu(
             iface_frame, 
-            values=self.interface_manager.get_interfaces(),
+            values=interfaces,
             variable=self.interface_var,
             dynamic_resizing=False,
             anchor="c"
         )
         self.interface_menu.pack(fill="x", pady=(0, 10))
+        self.interface_var.set(interfaces[0])
         
         # IO Slot selection
         slot_frame = ctk.CTkFrame(setup_frame, fg_color="transparent")
@@ -225,7 +273,7 @@ class MacConfigApp(ctk.CTk):
             text="⚠️ Warning: Always backup your session file before updating!",
             text_color="orange",
             font=("", 10, "bold"),
-            wraplength=350  # Ensures text wraps nicely on small windows
+            wraplength=400
         ).pack(pady=(0, 5))
 
         # Status bar
@@ -253,6 +301,9 @@ class MacConfigApp(ctk.CTk):
         if not self.session:
             messagebox.showwarning("Warning", "Please load a session file first")
             return
+        if self.interface_var.get() == "No interfaces found":
+            messagebox.showerror("Error", "No valid network interface selected")
+            return
             
         try:
             mac = self.interface_manager.extract_mac(self.interface_var.get())
@@ -265,11 +316,15 @@ class MacConfigApp(ctk.CTk):
                 bank = 1
                 io = io - 8
                 
-            # Save a copy if needed
+            # CROSS-PLATFORM PATH FIX: Split the path so macOS file dialogs don't mangle it
+            initial_dir = os.path.dirname(self.session)
+            initial_name = os.path.basename(self.session)
+            
             save_path = fd.asksaveasfilename(
+                initialdir=initial_dir,
+                initialfile=initial_name,
                 defaultextension=".emo", 
-                filetypes=[("eMotion LV1 Session File", "*.emo")],
-                initialfile=self.session
+                filetypes=[("eMotion LV1 Session File", "*.emo")]
             )
             
             if not save_path:
